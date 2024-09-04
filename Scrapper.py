@@ -16,8 +16,7 @@ end_date = datetime.strptime("30/07/2024", "%d/%m/%Y")
 
 # Abrir o arquivo CSV para escrita inicial e adicionar cabeçalhos
 with open('dados_boi_gordo.csv', mode='w', newline='') as file:
-    df_init = pd.DataFrame(columns=["Data", "VENCTO", "CONTR. ABERT.", "PREÇO ABERT.", "PREÇO MÍN.", "PREÇO MÁX.", 
-                                    "PREÇO MÉD.", "ÚLT. PREÇO", "AJUSTE", "VAR. PTOS.", "ÚLT. OF. COMPRA", "ÚLT. OF. VENDA"])
+    df_init = pd.DataFrame(columns=["Data", "VENCTO", "AJUSTE"])
     df_init.to_csv(file, index=False)
 
 current_date = start_date
@@ -45,37 +44,30 @@ while current_date <= end_date:
                     df_null = pd.DataFrame({
                         "Data": [formatted_date],
                         "VENCTO": ["NULL"],
-                        "CONTR. ABERT.": ["NULL"],
-                        "PREÇO ABERT.": ["NULL"],
-                        "PREÇO MÍN.": ["NULL"],
-                        "PREÇO MÁX.": ["NULL"],
-                        "PREÇO MÉD.": ["NULL"],
-                        "ÚLT. PREÇO": ["NULL"],
-                        "AJUSTE": ["NULL"],
-                        "VAR. PTOS.": ["NULL"],
-                        "ÚLT. OF. COMPRA": ["NULL"],
-                        "ÚLT. OF. VENDA": ["NULL"]
+                        "AJUSTE": ["NULL"]
                     })
                     df_null.to_csv(file, index=False, header=False)
                 print(f"Dados não disponíveis para a data {formatted_date}. Registrado como NULL.")
             else:
-                # Procurar todas as tabelas na página
-                tables = soup.find_all("table")
+                # Encontrar as tabelas principais
+                table_vencto = soup.find('td', {'id': 'MercadoFut0'}).find('table')  # Tabela de VENCTO
+                table_ajuste = soup.find('td', {'id': 'MercadoFut2'}).find('table')  # Tabela de AJUSTE
+
+                # Extrair os dados de VENCTO e AJUSTE
+                vencto_data = [row.text.strip() for row in table_vencto.find_all('td', class_='text-center')]
+                ajuste_data = [row.text.strip() for row in table_ajuste.find_all('td', class_='text-right')[5::9]]  # Pega a coluna "AJUSTE"
+
+                # Criar um DataFrame com VENCTO e AJUSTE
+                df_filtered = pd.DataFrame({
+                    "Data": [formatted_date] * len(vencto_data),
+                    "VENCTO": vencto_data,
+                    "AJUSTE": ajuste_data
+                })
                 
-                if tables:
-                    # Usar StringIO para converter a tabela HTML em um stream de texto
-                    table_html = str(tables[0])
-                    df_table = pd.read_html(StringIO(table_html), flavor='bs4', header=0)[0]
-                    
-                    # Adicionar a coluna da data
-                    df_table['Data'] = formatted_date
-                    
-                    # Salvar os dados diretamente no arquivo CSV
-                    with open('dados_boi_gordo.csv', mode='a', newline='') as file:
-                        df_table.to_csv(file, index=False, header=False)
-                    print(f"Dados salvos para a data {formatted_date}.")
-                else:
-                    print(f"Nenhuma tabela encontrada para a data {formatted_date}.")
+                # Salvar os dados diretamente no arquivo CSV
+                with open('dados_boi_gordo.csv', mode='a', newline='') as file:
+                    df_filtered.to_csv(file, index=False, header=False)
+                print(f"Dados salvos para a data {formatted_date}.")
         
         except Exception as e:
             print(f"Ocorreu um erro na data {formatted_date}: {e}")
